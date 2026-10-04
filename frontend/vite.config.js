@@ -17,4 +17,7 @@ export default defineConfig({
     host: 'localhost',
     port: 4173,
   },
+  build: {
+    outDir: 'dist',
+  },
 });
