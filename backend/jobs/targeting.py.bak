@@ -1,0 +1,132 @@
+import re
+
+'''Targeting rules for the job feed: IT roles, Indian locations (with deep
+South-India coverage), fresher + experienced/senior positions, and MNC
+companies. Applied on every scan so the Jobs page shows relevant roles for
+both freshers and seniors.'''
+
+# --- IT / tech roles -------------------------------------------------------------
+# Matched against a normalised blob: title + skills/tags/categories with
+# hyphens and underscores turned into spaces (e.g. "Software-Engineer").
+IT_PATTERN = __import__('re').compile(
+    r'engineer|developer|programmer|software|full[\s]?stack|front[\s]?end|back[\s]?end|'
+    r'devops|\bsre\b|site reliability|cloud|kubernetes|terraform|'
+    r'\bqa\b|quality assurance|\bsdet\b|test automation|automation tester|software test|'
+    r'data scientist|data engineer|data analyst|data analyst|data analytics|data science|data warehouse|data pipeline|\betl\b|'
+    r'machine learning|\bml\b|artificial intelligence|\bai\b|deep learning|nlp|large language model|\bllm\b|genai|'
+    r'python|java\b|javascript|typescript|react\b|angular|node ?js|\bnode\b|php|ruby|rails|golang|'
+    r'\bc\+\+|\bnet\b|dotnet|sap\b|salesforce|android|ios\b|swift|kotlin|flutter|'
+    r'security|cyber|information technology|\bit support\b|\bit specialist\b|\bit analyst\b|'
+    r'technical support|help ?desk|network (engineer|administrator|admin)|'
+    r'system administrator|systems administrator|sysadmin|'
+    r'business analyst|systems analyst|database|\bdba\b|sql developer|'
+    r'web developer|mobile developer|application developer|embedded|firmware|'
+    r'power bi|tableau|informatica|mainframe|oracle developer|sap consultant',
+    __import__('re').IGNORECASE)
+
+# Roles that only look technical at a glance (or are clearly not IT).
+NON_IT_PATTERN = re.compile(
+    r'marketing|advertis|mortgage|loan|accounting|accountant|payroll|recruit|'
+    r'nurse|doctor|teacher|teaching|legal|paralegal|cook|chef|driver|retail|'
+    r'content writer|copywriter|social media|'
+    r'participat|study|translator|linguist|locali[sz]ation|voice|curriculum|'
+    r'business development|classroom|customer research|research agent|'
+    r'digital ad|ad quality|\bpos\b|assistant|'
+    r'sales representative|sales associate|sales executive|sales manager|'
+    r'inside sales|outside sales|undecided|talent hub|talent network|'
+    r'coding tasks|customer support|'
+    r'annotat|usability|survey|humanities|data entry|transcription|'
+    r'content moderator|moderation|office assistant|administrative|back office|'
+    r'customer service|customer success|tutor',
+    re.IGNORECASE)
+
+# --- Indian locations ------------------------------------------------------------
+INDIA_PATTERN = re.compile(
+    r'india|bengaluru|bangalore|hyderabad|pune|mumbai|chennai|delhi|noida|'
+    r'gurugram|gurgaon|kolkata|ahmedabad|jaipur|kochi|coimbatore|indore|'
+    r'chandigarh|thane|visakhapatnam|vijayawada|patna|bhopal|lucknow|nagpur|'
+    r'surat|dehradun|guwahati|ranchi|raipur|mysore|mysuru|tirupati|warangal|'
+    r'pondicherry|puducherry|\bgoa\b', re.IGNORECASE)
+
+# --- Fresher / entry level -------------------------------------------------------
+FRESHER_PATTERN = re.compile(
+    r'junior|\bjr\b|entry[\s-]?level|intern(ship)?|trainee|graduate|fresher|'
+    r'associate|apprentice|apprenticeship|new grad|0[\s-]?(?:to|[-])[\s-]?2 years|'
+    r'0[\s-]?1 years|no experience', re.IGNORECASE)
+
+# Seniority markers that put a role out of reach for a fresher.
+SENIOR_PATTERN = re.compile(
+    r'senior|\bsr\.?\b|\blead\b|principal|\bstaff\b|head of|\bhead\b|director|'
+    r'chief|\bcto\b|\bvp\b|vice president|manager|\barchitect\b|'
+    r'\d+\s*[-+]?\s*\d*\s*years', re.IGNORECASE)
+
+# --- MNC companies ---------------------------------------------------------------
+# Matched as whole words against the normalised company name.
+MNC_COMPANIES = [
+    # global technology
+    'google', 'microsoft', 'amazon', 'aws', 'apple', 'meta', 'facebook', 'ibm',
+    'oracle', 'sap', 'salesforce', 'adobe', 'cisco', 'intel', 'nvidia', 'dell',
+    'hewlett packard', 'hpe', 'hp', 'lenovo', 'vmware', 'servicenow', 'service now',
+    'workday', 'intuit', 'paypal', 'uber', 'airbnb', 'netflix', 'spotify',
+    'linkedin', 'twitter', 'dropbox', 'snowflake', 'atlassian', 'shopify',
+    'samsung', 'sony', 'red hat', 'canonical', 'gitlab', 'github', 'nutanix',
+    'juniper', 'fortinet', 'palo alto', 'zscaler', 'crowdstrike', 'trend micro',
+    'mcafee', 'aruba',
+    # consulting & Indian IT services
+    'accenture', 'deloitte', 'kpmg', 'pwc', 'ernst and young', 'capgemini',
+    'cognizant', 'infosys', 'wipro', 'hcl', 'tech mahindra', 'ltimindtree',
+    'mindtree', 'mphasis', 'hexaware', 'ntt data', 'tcs', 'tata consultancy',
+    'tata', 'mdaas', 'globant', 'epam', 'softserve',
+    # finance & telecom & industry
+    'jpmorgan', 'jp morgan', 'goldman sachs', 'morgan stanley', 'barclays',
+    'hsbc', 'standard chartered', 'deutsche bank', 'ubs', 'citibank', 'citi',
+    'visa', 'mastercard', 'american express', 'allianz', 'axa',
+    'siemens', 'bosch', 'philips', 'nokia', 'ericsson', 'schneider',
+    'honeywell', 'general electric', 'unilever', 'procter and gamble',
+]
+
+_WORD_RE = {key: re.compile(r'\b' + re.escape(key) + r'\b', re.IGNORECASE) for key in MNC_COMPANIES}
+
+
+def _blob(*parts):
+    '''Normalise free text: lowercase, hyphens/underscores to spaces.'''
+    text=' '.join(str(p) for p in parts if p)
+    return re.sub(r'[-_]+',' ', text).lower()
+
+
+def is_it_role(title, *extra):
+    # Non-IT words only disqualify the *title*; an IT job description may
+    # legitimately mention marketing, accounts, legal etc.
+    if NON_IT_PATTERN.search(_blob(title)): return False
+    return bool(IT_PATTERN.search(_blob(title, *extra)))
+
+
+def is_india_location(location):
+    return bool(INDIA_PATTERN.search(location or ''))
+
+
+def is_fresher_role(title, experience=''):
+    '''Explicit fresher wording, an entry-level experience label, or no senior marker.'''
+    if FRESHER_PATTERN.search(title or ''): return True
+    if FRESHER_PATTERN.search(experience or ''): return True
+    return not SENIOR_PATTERN.search(title or '')
+
+
+def is_mnc_company(company):
+    text=str(company or '').strip()
+    if not text: return False
+    return any(pattern.search(text) for pattern in _WORD_RE.values())
+
+
+def passes_target_policy(raw):
+    '''True when a raw job row is an IT role in India aimed at freshers.
+
+    IT is judged from the title plus tags/categories only - descriptions
+    routinely mention technologies for non-IT roles, which would leak them in.'''
+    title=raw.get('title','')
+    skills=' '.join(raw.get('required_skills') or [])
+    return (
+        is_it_role(title, skills)
+        and is_india_location(raw.get('location',''))
+        and is_fresher_role(title, raw.get('experience',''))
+    )
