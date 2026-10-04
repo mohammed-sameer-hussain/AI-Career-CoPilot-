@@ -1,4 +1,4 @@
-# AI Career Copilot — single URL
+# AI Career Copilot — 
 
 A Django + React app for tech job discovery, resume analysis, job matching,
 cover letters, interview prep, notifications and application tracking.
