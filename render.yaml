@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: ai-career-copilot
+    runtime: python
+    rootDir: backend
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py migrate
+      python manage.py collectstatic --noinput
+      npm --prefix ../frontend install
+      npm --prefix ../frontend run build
+      rm -rf frontend_dist
+      cp -r ../frontend/dist frontend_dist
+    startCommand: python manage.py runserver 0.0.0.0:$PORT
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: ai-career-copilot
+          property: host
+      - key: OPENAI_API_KEY
+        sync: false
+
+databases:
+  - name: ai-career-copilot-db
+    databaseName: ai_career_copilot
+    user: ai_career_copilot
+    plan: free
