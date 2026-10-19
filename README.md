@@ -1,7 +1,6 @@
 # AI Career Copilot — 
 
-A Django + React app for tech job discovery, resume analysis, job matching,
-cover letters, interview prep, notifications and application tracking.
+AI Career Copilot — an AI-powered career platform for resume analysis, job matching, skill-gap recommendations, cover letters, interview preparation, and application tracking. Built with React, Django REST Framework, and Python.
 
 ## Demo
 
