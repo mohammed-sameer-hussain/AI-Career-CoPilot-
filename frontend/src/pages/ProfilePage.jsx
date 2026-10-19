@@ -432,8 +432,15 @@ export function ProfilePage() {
                             <strong>{match.job.title}</strong>
                             <span className="text-muted">{match.job.company}</span>
                           </div>
-                          <div className={`match-score ${match.score >= 70 ? 'high' : match.score >= 50 ? 'medium' : 'low'}`}>
-                            {match.score}%
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                            <div className={`match-score ${match.score >= 70 ? 'high' : match.score >= 50 ? 'medium' : 'low'}`} title="Match Score">
+                              {match.score}%
+                            </div>
+                            {match.hiring_probability !== undefined && (
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: match.hiring_probability >= 60 ? '#059669' : match.hiring_probability >= 35 ? '#d97706' : '#dc2626' }}>
+                                {match.hiring_probability}% odds
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="match-result-skills">
@@ -461,11 +468,23 @@ export function ProfilePage() {
                   {selectedMatch && (
                     <div className="match-detail">
                       <div className="match-detail-header">
-                        <h3>{selectedMatch.job.title}</h3>
-                        <span className="text-muted">{selectedMatch.job.company}</span>
-                        <Link to={`/jobs/${selectedMatch.job.id}`} className="btn btn-primary btn-sm">
-                          View Job <ArrowRight size={14} />
-                        </Link>
+                        <div>
+                          <h3>{selectedMatch.job.title}</h3>
+                          <span className="text-muted">{selectedMatch.job.company}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
+                          <span className="card-match-pill match-pill">
+                            {selectedMatch.score}% Match
+                          </span>
+                          {selectedMatch.hiring_probability !== undefined && (
+                            <span className="card-match-pill hire-pill">
+                              {selectedMatch.hiring_probability}% Hire Odds
+                            </span>
+                          )}
+                          <Link to={`/jobs/${selectedMatch.job.id}`} className="btn btn-primary btn-sm">
+                            View Job <ArrowRight size={14} />
+                          </Link>
+                        </div>
                       </div>
 
                       <div className="match-scores-grid">
@@ -473,6 +492,11 @@ export function ProfilePage() {
                           <span className="score-label">Skills</span>
                           <div className="score-bar"><div className="score-fill" style={{ width: `${selectedMatch.skill_match}%` }}></div></div>
                           <span className="score-value">{selectedMatch.skill_match}%</span>
+                        </div>
+                        <div className="score-box">
+                          <span className="score-label">Embeddings</span>
+                          <div className="score-bar"><div className="score-fill" style={{ width: `${selectedMatch.semantic_similarity || 0}%`, background: '#7c3aed' }}></div></div>
+                          <span className="score-value">{selectedMatch.semantic_similarity || 0}%</span>
                         </div>
                         <div className="score-box">
                           <span className="score-label">Experience</span>
@@ -483,11 +507,6 @@ export function ProfilePage() {
                           <span className="score-label">Seniority</span>
                           <div className="score-bar"><div className="score-fill" style={{ width: `${selectedMatch.seniority_match}%` }}></div></div>
                           <span className="score-value">{selectedMatch.seniority_match}%</span>
-                        </div>
-                        <div className="score-box">
-                          <span className="score-label">Preferences</span>
-                          <div className="score-bar"><div className="score-fill" style={{ width: `${selectedMatch.preference_match}%` }}></div></div>
-                          <span className="score-value">{selectedMatch.preference_match}%</span>
                         </div>
                       </div>
 

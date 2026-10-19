@@ -11,6 +11,8 @@ import {
   Clock,
   Tag,
   ChevronDown,
+  Target,
+  TrendingUp,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -246,6 +248,23 @@ export function JobsPage() {
                   <p className="job-experience">
                     <Clock size={14} /> {job.experience}
                   </p>
+                )}
+                {job.match_score !== null && job.match_score !== undefined && (
+                  <div className="card-match-indicators">
+                    <span className="card-match-pill match-pill" title="Technical Qualification Match Score">
+                      <Target size={13} /> {job.match_score}% Match
+                    </span>
+                    {job.hiring_probability !== null && job.hiring_probability !== undefined && (
+                      <span
+                        className={`card-match-pill hire-pill ${
+                          job.hiring_probability >= 60 ? '' : job.hiring_probability >= 35 ? 'mid' : 'low'
+                        }`}
+                        title="Estimated Hiring Probability factoring in market selectivity & competition"
+                      >
+                        <TrendingUp size={13} /> {job.hiring_probability}% Hire Odds
+                      </span>
+                    )}
+                  </div>
                 )}
                 <div className="job-skills">
                   {(job.required_skills || []).slice(0, 5).map((skill) => (

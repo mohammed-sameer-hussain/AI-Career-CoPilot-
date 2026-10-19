@@ -427,3 +427,158 @@ textarea{resize:vertical}
 .skill-plan-resources{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .resource-link{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--primary);background:var(--primary-soft);border:1px solid transparent;border-radius:999px;padding:3px 10px;transition:all .15s}
 .resource-link:hover{border-color:var(--primary);background:#fff}
+
+/* ---------- Intelligent Matching & Dual Metrics Enhancements ---------- */
+.dual-score-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin: 12px 0;
+}
+.dual-score-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.dual-score-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.score-circle.hiring-circle {
+  background: conic-gradient(var(--hire-color, #12a150) var(--score), #e8ebf1 0);
+}
+.score-circle.hiring-circle span {
+  color: var(--hire-color, #12a150);
+}
+.hiring-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.hiring-tier-badge.tier-high {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.hiring-tier-badge.tier-competitive {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.hiring-tier-badge.tier-moderate {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+.hiring-tier-badge.tier-reach {
+  background: #fdf2f8;
+  color: #9d174d;
+  border: 1px solid #fbcfe8;
+}
+
+/* Callout explaining score vs probability */
+.metrics-diff-callout {
+  background: #f0f4ff;
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: #374151;
+  text-align: left;
+  line-height: 1.5;
+}
+.metrics-diff-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+/* Skill badges */
+.skill-tag.semantic {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+.skill-tag.semantic .skill-relation {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-left: 4px;
+  font-weight: normal;
+}
+.skill-tag.preferred-tag {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+/* Hiring Drivers & Factors */
+.factors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.factor-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.factor-item.positive {
+  color: #065f46;
+}
+.factor-item.risk {
+  color: #991b1b;
+}
+
+/* Job card dual badges */
+.card-match-indicators {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+  flex-wrap: wrap;
+}
+.card-match-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.card-match-pill.match-pill {
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+.card-match-pill.hire-pill {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.card-match-pill.hire-pill.mid {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.card-match-pill.hire-pill.low {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}

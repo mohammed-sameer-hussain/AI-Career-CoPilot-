@@ -40,4 +40,4 @@ urlpatterns = [
     # React SPA: app shell for every non-API route (/, /jobs, /login, ...)
     path('', spa_view, name='spa-root'),
     re_path(r'^(?P<_path>(?!api/|admin/|static/|media/).*)$', spa_view, name='spa'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+] + (static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) if settings.DEBUG else [])

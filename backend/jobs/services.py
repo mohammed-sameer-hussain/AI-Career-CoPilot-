@@ -25,14 +25,40 @@ def scan_jobs(profile=None):
         raise ValueError(' | '.join(errors))
     return created
 
+from .matching_engine import calculate_intelligent_match
+
 def match_job(profile,job):
     resume=profile.resumes.order_by('-uploaded_at').first()
     if not resume: raise ValueError('Upload a resume first.')
-    data=analyze(resume.extracted_text,job)
-    score=round(data['skill_match']*.4+data['experience_match']*.3+data['seniority_match']*.2+data['preference_match']*.1,2)
-    match,_=JobMatch.objects.update_or_create(job=job,profile=profile,defaults={**data,'score':score})
+    data=calculate_intelligent_match(resume.extracted_text,job,profile)
+    score=data['score']
+    match,_=JobMatch.objects.update_or_create(
+        job=job,
+        profile=profile,
+        defaults={
+            'score': score,
+            'hiring_probability': data.get('hiring_probability', 0.0),
+            'semantic_similarity': data.get('semantic_similarity', 0.0),
+            'skill_match': data.get('skill_match', 0.0),
+            'experience_match': data.get('experience_match', 0.0),
+            'seniority_match': data.get('seniority_match', 0.0),
+            'preference_match': data.get('preference_match', 0.0),
+            'matching_skills': data.get('matching_skills', []),
+            'missing_skills': data.get('missing_skills', []),
+            'skill_breakdown': data.get('skill_breakdown', {}),
+            'hiring_factors': data.get('hiring_factors', {}),
+            'explanation': data.get('explanation', ''),
+        }
+    )
     if score>=70:
-        Notification.objects.get_or_create(profile=profile,job=job,defaults={'title':f'{job.title} at {job.company}','message':f'Match score: {score}. Matching skills: {", ".join(data["matching_skills"])}'})
+        Notification.objects.get_or_create(
+            profile=profile,
+            job=job,
+            defaults={
+                'title':f'{job.title} at {job.company}',
+                'message':f'Match score: {score}% (Hire Odds: {data.get("hiring_probability", 0)}%). Matching skills: {", ".join(data.get("matching_skills", []))}'
+            }
+        )
     return match
 
 def application_for(profile,job):
@@ -50,20 +76,26 @@ def match_all_jobs(profile, min_score=0):
     jobs=Job.objects.all()
     matches=[]
     for job in jobs:
-        data=analyze(resume.extracted_text,job)
-        score=round(data['skill_match']*.4+data['experience_match']*.3+data['seniority_match']*.2+data['preference_match']*.1,2)
-        if score >= min_score:
-            matches.append({
-                'job': JobSerializer(job).data,
-                'score': score,
-                'skill_match': data['skill_match'],
-                'experience_match': data['experience_match'],
-                'seniority_match': data['seniority_match'],
-                'preference_match': data['preference_match'],
-                'matching_skills': data['matching_skills'],
-                'missing_skills': data['missing_skills'],
-                'explanation': data['explanation'],
-            })
+        try:
+            m = match_job(profile, job)
+            if m.score >= min_score:
+                matches.append({
+                    'job': JobSerializer(job).data,
+                    'score': m.score,
+                    'hiring_probability': m.hiring_probability,
+                    'semantic_similarity': m.semantic_similarity,
+                    'skill_match': m.skill_match,
+                    'experience_match': m.experience_match,
+                    'seniority_match': m.seniority_match,
+                    'preference_match': m.preference_match,
+                    'matching_skills': m.matching_skills,
+                    'missing_skills': m.missing_skills,
+                    'skill_breakdown': m.skill_breakdown,
+                    'hiring_factors': m.hiring_factors,
+                    'explanation': m.explanation,
+                })
+        except Exception:
+            pass
     matches.sort(key=lambda x: x['score'], reverse=True)
     return matches
 

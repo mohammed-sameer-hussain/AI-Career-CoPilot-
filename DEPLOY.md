@@ -12,7 +12,7 @@ This app has two parts:
 2. Click **New Project** → **Deploy from GitHub repo**
 3. Select `mohammed-sameer-hussain/AI-Career-CoPilot-`
 4. Railway will auto-detect Django. If not, set:
-   - **Start Command**: `python manage.py runserver 0.0.0.0:$PORT`
+   - **Start Command**: `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile -`
    - **Root Directory**: `backend`
 5. Add environment variables (in Railway dashboard):
    ```
@@ -21,6 +21,12 @@ This app has two parts:
    ALLOWED_HOSTS=.railway.app,localhost,127.0.0.1
    CORS_ALLOWED_ORIGINS=https://your-vercel-app.vercel.app
    OPENAI_API_KEY=<your-key-if-any>
+   DATABASE_URL=<managed PostgreSQL connection string>
+   REDIS_URL=<managed Redis connection string>
+   AWS_STORAGE_BUCKET_NAME=<durable resume bucket>
+   AWS_S3_REGION_NAME=<bucket region>
+   AWS_ACCESS_KEY_ID=<storage access key>
+   AWS_SECRET_ACCESS_KEY=<storage secret key>
    ```
 6. Note the Railway URL, e.g. `https://ai-career-copilot-production.up.railway.app`
 
@@ -59,13 +65,19 @@ Render can host Django AND serve the React build from the same origin — just l
    pip install -r requirements.txt && python manage.py migrate && npm --prefix ../frontend install && npm --prefix ../frontend run build && rm -rf frontend_dist && cp -r ../frontend/dist frontend_dist
    ```
    (On Windows/PowerShell use `xcopy` instead of `cp`.)
-5. **Start Command**: `python manage.py runserver 0.0.0.0:$PORT`
+5. **Start Command**: `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile -`
 6. **Environment Variables**:
    ```
    DJANGO_SECRET_KEY=<random>
    DJANGO_DEBUG=False
    ALLOWED_HOSTS=.onrender.com
    CORS_ALLOWED_ORIGINS=https://your-render-url.onrender.com
+   DATABASE_URL=<managed PostgreSQL connection string>
+   REDIS_URL=<managed Redis connection string>
+   AWS_STORAGE_BUCKET_NAME=<durable resume bucket>
+   AWS_S3_REGION_NAME=<bucket region>
+   AWS_ACCESS_KEY_ID=<storage access key>
+   AWS_SECRET_ACCESS_KEY=<storage secret key>
    ```
 7. Deploy — the app is at `https://your-render-url.onrender.com/`
 
@@ -85,6 +97,12 @@ Open http://localhost:5173 (dev) or http://127.0.0.1:8000 (single URL).
 ---
 
 ## Notes
-- The database is SQLite by default. For production, switch to PostgreSQL (Railway/Render provide one free).
+- Set `DATABASE_URL` to the managed PostgreSQL connection string in production. SQLite remains the local development fallback.
+- Production requires a non-empty `DJANGO_SECRET_KEY`; HTTPS redirect, secure cookies, HSTS, and proxy headers are enabled when `DJANGO_DEBUG=False`.
+- Access tokens are short-lived JWTs (30 minutes by default); refresh tokens last 7 days and are accepted only by the refresh endpoint.
+- API requests are throttled, with authentication endpoints limited to 5 requests per minute per client IP.
+- Set `REDIS_URL` to a managed Redis instance in multi-worker production so throttle counters are shared across Gunicorn workers; local development uses an in-process cache.
+- Resume uploads are limited to 10 MB and validated as PDF, DOCX, or TXT before parsing.
 - File uploads (resumes) go to `media/`. On Railway/Render this is ephemeral — use S3/Cloudinary for permanent storage.
+- Set the S3-compatible variables above to persist resumes. The storage backend switches automatically when `AWS_STORAGE_BUCKET_NAME` is set.
 - Never commit `backend/.env` (it is in `.gitignore`).

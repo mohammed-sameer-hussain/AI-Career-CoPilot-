@@ -28,33 +28,85 @@ def _json_call(prompt, temperature=0.2):
         return None
 
 def analyze(resume_text, job, profile=None):
-    data=_json_call(f'''Resume:\n{resume_text[:12000]}\n\nJob:\n{job.description[:12000]}\n\nReturn JSON with keys: matching_skills, missing_skills, skill_match, experience_match, seniority_match, preference_match, explanation. Scores are 0-100.''', 0)
-    return data or fallback_match(resume_text, job, profile)
+    from .matching_engine import calculate_intelligent_match
+    return calculate_intelligent_match(resume_text, job, profile)
 
 def generate_application(resume_text, job):
-    data=_json_call(f'''Resume:\n{resume_text[:12000]}\n\nJob description:\n{job.description[:12000]}\n\nReturn JSON with resume_suggestions (array of 4 strings), cover_letter (string), interview_qa (array of 8 objects each with "question" and a model "answer"). Answers must stay grounded in the resume and must not invent facts.''', 0.2)
-    if not data: return fallback_application(resume_text, job)
-    qa=data.get('interview_qa') or []
-    data['interview_qa']=qa
-    data.setdefault('interview_questions',[q.get('question','') for q in qa if isinstance(q,dict)])
-    data.setdefault('resume_suggestions',[])
-    data.setdefault('cover_letter','')
-    return data
+    data=_json_call(f'''Resume:\n{resume_text[:12000]}\n\nJob description:\n{job.description[:12000]}\n\nReturn JSON only with this exact shape:\n{{
+  "resume_suggestions": [{{"text": "editable suggestion", "evidence": ["exact phrase from resume or job"]}}],
+  "cover_letter": {{"text": "editable cover letter", "evidence": ["exact phrase from resume or job"]}},
+  "interview_qa": [{{"question": "question", "answer": "safe model answer", "evidence": ["exact phrase from resume or job"]}}],
+  "unsupported_claims": []
+}}\n\nEvery evidence item must be copied exactly from the supplied resume or job. If a fact is not present, say the candidate should add their own example instead of inventing one. Never claim an unlisted skill, employer, title, certification, project, metric, date, or achievement.''', 0.2)
+    normalized=_normalize_application(data, resume_text, job)
+    return normalized if normalized else fallback_application(resume_text, job)
+
+
+def _contains_evidence(phrase, resume_text, job):
+    phrase=(str(phrase or '').strip()).lower()
+    if not phrase: return False
+    job_text=' '.join(str(getattr(job, field, '') or '') for field in ('title','company','location','experience','description'))
+    return phrase in (resume_text or '').lower() or phrase in job_text.lower()
+
+
+def _normalize_application(data, resume_text, job):
+    """Validate structured model output before it can become an application draft."""
+    if not isinstance(data, dict) or data.get('unsupported_claims'):
+        return None
+    suggestions=[]
+    for item in data.get('resume_suggestions') or []:
+        if not isinstance(item, dict) or not item.get('text') or not all(_contains_evidence(e, resume_text, job) for e in item.get('evidence') or []):
+            return None
+        suggestions.append(str(item['text']).strip())
+    letter=data.get('cover_letter') or {}
+    if not isinstance(letter, dict) or not letter.get('text') or not all(_contains_evidence(e, resume_text, job) for e in letter.get('evidence') or []):
+        return None
+    qa=[]
+    for item in data.get('interview_qa') or []:
+        if not isinstance(item, dict) or not item.get('question') or not item.get('answer'):
+            return None
+        evidence=item.get('evidence') or []
+        if not all(_contains_evidence(e, resume_text, job) for e in evidence):
+            return None
+        qa.append({'question': str(item['question']).strip(), 'answer': str(item['answer']).strip(), 'evidence': evidence})
+    if not suggestions or not qa:
+        return None
+    structured={
+        'resume_suggestions':[{'text': text, 'editable': True} for text in suggestions],
+        'cover_letter':{'text': str(letter['text']).strip(), 'editable': True},
+        'interview_qa':[dict(item, editable=True) for item in qa],
+        'grounding':{'unsupported_claims': [], 'validated': True},
+    }
+    return {'resume_suggestions': suggestions, 'cover_letter': str(letter['text']).strip(),
+            'interview_qa': qa, 'interview_questions':[item['question'] for item in qa],
+            'structured_output': structured}
 
 def fallback_application(resume_text, job):
     qa=fallback_interview_qa(resume_text, job)
+    suggestions=fallback_resume_tips(resume_text, job)
+    structured={
+        'resume_suggestions':[{'text': text, 'editable': True} for text in suggestions],
+        'cover_letter':{'text': fallback_cover_letter(resume_text, job), 'editable': True},
+        'interview_qa':[dict(item, evidence=[], editable=True) for item in qa],
+        'grounding':{'unsupported_claims': [], 'validated': True, 'mode': 'deterministic'},
+    }
     return {
-        'resume_suggestions':fallback_resume_tips(resume_text, job),
+        'resume_suggestions':suggestions,
         'cover_letter':fallback_cover_letter(resume_text, job),
         'interview_qa':qa,
         'interview_questions':[q['question'] for q in qa],
+        'structured_output': structured,
     }
 def _resume_skills(resume_text, job):
     '''Return (skills found in the resume, skills from the posting not found).'''
     text=(resume_text or '').lower()
     pool=list(dict.fromkeys([*(job.required_skills or []),*(job.preferred_skills or [])]))
-    present=[s for s in pool if s and s.lower() in text]
-    missing=[s for s in (job.required_skills or []) if s and s.lower() not in text]
+    def present_in_resume(skill):
+        if not skill: return False
+        pattern=r'(?<![\w+#.])'+re.escape(skill.lower())+r'(?![\w+#.])'
+        return bool(re.search(pattern, text))
+    present=[s for s in pool if present_in_resume(s)]
+    missing=[s for s in (job.required_skills or []) if s and not present_in_resume(s)]
     return present, missing
 
 def _resume_years(resume_text):
@@ -72,50 +124,10 @@ def _seniority(text):
     return max(found) if found else 3
 
 def fallback_match(resume_text, job, profile=None):
-    '''Deterministic, explainable scoring used when no LLM key is configured.'''
-    present, missing = _resume_skills(resume_text, job)
-    req=job.required_skills or []
-    pref=[s for s in (job.preferred_skills or []) if s and s.lower() in (resume_text or '').lower()]
-    base=(len(present)/len(req))*100 if req else 50.0
-    bonus=(len(pref)/len(job.preferred_skills))*10 if job.preferred_skills else 0.0
-    skill=round(min(100.0, base+bonus), 1)
-    # experience fit: compare resume years with the posting's range
-    job_years=_job_years(job.experience)
-    cand_years=_resume_years(resume_text)
-    if job_years and cand_years is not None:
-        low, high = job_years[0], (job_years[1] if len(job_years) > 1 else job_years[0])
-        if low <= cand_years <= high: experience=100.0
-        elif cand_years < low: experience=round(max(30.0, 100-(low-cand_years)*25), 1)
-        else: experience=round(max(55.0, 100-(cand_years-high)*12), 1)
-    elif job_years:
-        experience=60.0
-    else:
-        experience=70.0
-    # seniority fit: resume seniority keywords vs the posting title
-    cand_level=_seniority(resume_text); job_level=_seniority(job.title)
-    gap=abs(cand_level-job_level)
-    seniority=100.0 if gap==0 else max(40.0, 100-gap*20)
-    # location preference fit
-    preference=50.0
-    if profile is not None:
-        job_loc=(job.location or '').lower()
-        wanted=[str(l).lower() for l in (profile.preferred_locations or [])]
-        if not wanted: preference=60.0
-        elif any(w and (w in job_loc or job_loc in w) for w in wanted): preference=100.0
-        elif 'remote' in job_loc: preference=75.0
-        else: preference=45.0
-    explanation=(
-        f"Matched {len(present)}/{len(req) or 0} required skills. "
-        f"Required skills present: {', '.join(present) or 'none detected'}. "
-        f"Missing: {', '.join(missing) or 'none'}. "
-        f"Experience fit {experience}% (posting: {job.experience or 'not specified'}; resume shows "
-        f"{('%g years' % cand_years) if cand_years is not None else 'no explicit years'}). "
-        f"Seniority fit {seniority}%. "
-        "Deterministic scoring was used because no LLM API key is configured."
-    )
-    return {'matching_skills':present,'missing_skills':missing,'skill_match':skill,
-            'experience_match':experience,'seniority_match':seniority,
-            'preference_match':preference,'explanation':explanation}
+    '''Intelligent NLP and semantic IR matching engine.'''
+    from .matching_engine import calculate_intelligent_match
+    return calculate_intelligent_match(resume_text, job, profile)
+
 def fallback_resume_tips(resume_text, job):
     present, missing = _resume_skills(resume_text, job)
     tips=[

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 class CandidateProfile(models.Model):
     name=models.CharField(max_length=200)
@@ -36,12 +37,16 @@ class JobMatch(models.Model):
     job=models.ForeignKey(Job,on_delete=models.CASCADE,related_name='matches')
     profile=models.ForeignKey(CandidateProfile,on_delete=models.CASCADE,related_name='job_matches')
     score=models.FloatField()
+    hiring_probability=models.FloatField(default=0.0)
+    semantic_similarity=models.FloatField(default=0.0)
     skill_match=models.FloatField()
     experience_match=models.FloatField()
     seniority_match=models.FloatField()
     preference_match=models.FloatField()
     matching_skills=models.JSONField(default=list)
     missing_skills=models.JSONField(default=list)
+    skill_breakdown=models.JSONField(default=dict)
+    hiring_factors=models.JSONField(default=dict)
     explanation=models.TextField(blank=True)
     created_at=models.DateTimeField(auto_now=True)
     class Meta:
@@ -56,6 +61,7 @@ class Application(models.Model):
     cover_letter=models.TextField(blank=True)
     interview_questions=models.JSONField(default=list)
     interview_qa=models.JSONField(default=list)
+    structured_output=models.JSONField(default=dict)
     notes=models.TextField(blank=True)
     applied_at=models.DateTimeField(null=True,blank=True)
     updated_at=models.DateTimeField(auto_now=True)
@@ -77,3 +83,28 @@ class AssistantMessage(models.Model):
     created_at=models.DateTimeField(auto_now_add=True)
     class Meta:
         ordering=['created_at']
+
+
+class BackgroundTask(models.Model):
+    """Durable, profile-scoped metadata for a Celery task."""
+    STATUS = [('PENDING', 'Pending'), ('STARTED', 'Started'), ('RETRY', 'Retrying'),
+              ('SUCCESS', 'Succeeded'), ('FAILURE', 'Failed')]
+    profile = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='background_tasks')
+    task_id = models.CharField(max_length=255, unique=True)
+    kind = models.CharField(max_length=80)
+    dedupe_key = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=STATUS, default='PENDING')
+    result = models.JSONField(null=True, blank=True)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['profile', 'kind', 'dedupe_key'],
+                condition=Q(status__in=['PENDING', 'STARTED', 'RETRY']),
+                name='unique_active_background_task',
+            )
+        ]
