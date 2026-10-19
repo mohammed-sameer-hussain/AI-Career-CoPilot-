@@ -74,7 +74,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
 
-  - type: redis
+  - type: keyvalue
     name: ai-career-copilot-redis
     plan: free
     maxmemoryPolicy: allkeys-lru
