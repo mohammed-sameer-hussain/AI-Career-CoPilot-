@@ -2,85 +2,42 @@ services:
   - type: web
     name: ai-career-copilot
     runtime: python
-    rootDir: backend
+    plan: free
+
     buildCommand: |
-      pip install -r requirements.txt
-      python manage.py migrate
-      python manage.py collectstatic --noinput
-      npm --prefix ../frontend install
-      npm --prefix ../frontend run build
-      rm -rf frontend_dist
-      cp -r ../frontend/dist frontend_dist
-    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile -
+      pip install -r backend/requirements.txt
+      npm --prefix frontend install
+      npm --prefix frontend run build
+      rm -rf backend/frontend_dist
+      mkdir -p backend/frontend_dist
+      cp -r frontend/dist/. backend/frontend_dist/
+      cd backend && python manage.py collectstatic --noinput
+
+    startCommand: cd backend && python manage.py migrate && exec gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile -
+
     envVars:
       - key: DJANGO_SECRET_KEY
         generateValue: true
+
       - key: DJANGO_DEBUG
         value: "False"
+
       - key: ALLOWED_HOSTS
         value: ".onrender.com"
-      - key: CORS_ALLOWED_ORIGINS
-        fromService:
-          type: web
-          name: ai-career-copilot
-          property: host
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: ai-career-copilot-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: ai-career-copilot-redis
-          property: connectionString
-      - key: AWS_STORAGE_BUCKET_NAME
-        sync: false
-      - key: AWS_S3_REGION_NAME
-        sync: false
-      - key: AWS_S3_ENDPOINT_URL
-        sync: false
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
-      - key: AWS_QUERYSTRING_AUTH
+
+      - key: CELERY_TASK_ALWAYS_EAGER
         value: "True"
 
-  - type: worker
-    name: ai-career-copilot-worker
-    runtime: python
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: celery -A config worker --loglevel=INFO --concurrency=2
-    envVars:
-      - key: DJANGO_SECRET_KEY
-        fromService:
-          type: web
-          name: ai-career-copilot
-          envVarKey: DJANGO_SECRET_KEY
-      - key: DJANGO_DEBUG
-        value: "False"
       - key: DATABASE_URL
         fromDatabase:
           name: ai-career-copilot-db
           property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: ai-career-copilot-redis
-          property: connectionString
+
       - key: OPENAI_API_KEY
         sync: false
-
-  - type: keyvalue
-    name: ai-career-copilot-redis
-    plan: free
-    maxmemoryPolicy: allkeys-lru
 
 databases:
   - name: ai-career-copilot-db
     databaseName: ai_career_copilot
     user: ai_career_copilot
-    plan: basic-256mb
+    plan: free
